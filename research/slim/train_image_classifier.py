@@ -19,6 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+import os
 
 from datasets import dataset_factory
 from deployment import model_deploy
@@ -72,6 +73,9 @@ tf.app.flags.DEFINE_integer(
 
 tf.app.flags.DEFINE_integer(
     'task', 0, 'Task id of the replica running the training.')
+
+tf.app.flags.DEFINE_boolean('shutdown_after_train', False,
+                            'shutdown?')
 
 ######################
 # Optimization Flags #
@@ -587,6 +591,9 @@ def main(_):
             save_summaries_secs=FLAGS.save_summaries_secs,
             save_interval_secs=FLAGS.save_interval_secs,
             sync_optimizer=optimizer if FLAGS.sync_replicas else None)
+
+    if FLAGS.shutdown_after_train:
+        os.system("sudo shutdown now")
 
 
 if __name__ == '__main__':
