@@ -35,7 +35,7 @@ tf.app.flags.DEFINE_integer(
     'batch_size', 2, 'The number of samples in each batch.')
 
 tf.app.flags.DEFINE_integer(
-    'max_num_batches', 1,
+    'max_num_batches', None,
     'Max number of batches to evaluate by default use all.')
 
 tf.app.flags.DEFINE_string(
