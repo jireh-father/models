@@ -161,11 +161,12 @@ def main(_):
         labels = tf.squeeze(labels)
 
         # Define the metrics:
-        names_to_values, names_to_updates = slim.metrics.aggregate_metric_map({
-            'Accuracy': slim.metrics.streaming_accuracy(predictions, labels),
-            'Recall_%d' % FLAGS.recall_at_k: slim.metrics.streaming_recall_at_k(
-                logits, labels, FLAGS.recall_at_k),
-        })
+        metrics = {
+            'Accuracy': slim.metrics.streaming_accuracy(predictions, labels)
+        }
+        for i in range(2, FLAGS.recall_at_k + 1):
+            metrics["Recall_%d" % i] = slim.metrics.streaming_recall_at_k(logits, i)
+        names_to_values, names_to_updates = slim.metrics.aggregate_metric_map(metrics)
 
         # Print the summaries to screen.
         for name, value in names_to_values.items():
