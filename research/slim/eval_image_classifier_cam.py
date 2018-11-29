@@ -176,7 +176,7 @@ def main(_):
         num_batches = FLAGS.max_num_batches
     else:
         # This ensures that we make a single pass over all of the data.
-        num_batches = math.ceil(dataset_slim.num_samples / float(FLAGS.batch_size))
+        num_batches = int(math.ceil(dataset_slim.num_samples / float(FLAGS.batch_size)))
 
     if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
         checkpoint_path = tf.train.latest_checkpoint(FLAGS.checkpoint_path)
