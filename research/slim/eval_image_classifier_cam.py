@@ -193,7 +193,7 @@ def main(_):
         ys = None
         logits = None
         for i in range(num_batches):
-            print(i, len(num_batches))
+            print(i, num_batches)
             result = sess.run([images, labels, logits_op, accuracy_op])
             if xs is None:
                 xs = result[0]
