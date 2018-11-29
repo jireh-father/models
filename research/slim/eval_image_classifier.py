@@ -165,7 +165,7 @@ def main(_):
             'Accuracy': slim.metrics.streaming_accuracy(predictions, labels)
         }
         for i in range(2, FLAGS.recall_at_k + 1):
-            metrics["Recall_%d" % i] = slim.metrics.streaming_recall_at_k(logits, i)
+            metrics["Recall_%d" % i] = slim.metrics.streaming_recall_at_k(logits, labels, i)
         names_to_values, names_to_updates = slim.metrics.aggregate_metric_map(metrics)
 
         # Print the summaries to screen.
