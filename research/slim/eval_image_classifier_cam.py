@@ -24,7 +24,7 @@ import tensorflow as tf
 from datasets import dataset_factory
 from nets import nets_factory
 from preprocessing import preprocessing_factory
-import os
+import os, glob
 from grad_cam_plus_plus import GradCamPlusPlus
 import numpy as np
 import cv2
@@ -53,10 +53,6 @@ tf.app.flags.DEFINE_integer(
     'num_preprocessing_threads', 4,
     'The number of threads used to create the batches.')
 
-tf.app.flags.DEFINE_integer(
-    'recall_at_k', 5,
-    'recall at k')
-
 tf.app.flags.DEFINE_string(
     'dataset_name', 'common', 'The name of the dataset to load.')
 
@@ -77,8 +73,8 @@ tf.app.flags.DEFINE_string(
     'model_name', 'inception_resnet_v2', 'The name of the architecture to evaluate.')
 
 tf.app.flags.DEFINE_string(
-    'preprocessing_name', None, 'The name of the preprocessing to use. If left '
-                                'as `None`, then the model_name flag is used.')
+    'preprocessing_name', "inception", 'The name of the preprocessing to use. If left '
+                                       'as `None`, then the model_name flag is used.')
 
 tf.app.flags.DEFINE_float(
     'moving_average_decay', None,
@@ -87,7 +83,7 @@ tf.app.flags.DEFINE_float(
 tf.app.flags.DEFINE_string('last_conv_layer', "Conv2d_7b_1x1", 'last_conv_layer')
 
 tf.app.flags.DEFINE_integer(
-    'eval_image_size', None, 'Eval image size')
+    'eval_image_size', 299, 'Eval image size')
 
 tf.app.flags.DEFINE_bool(
     'quantize', False, 'whether to use quantized graph or not.')
@@ -100,131 +96,173 @@ def main(_):
         raise ValueError('You must supply the dataset directory with --dataset_dir')
 
     tf.logging.set_verbosity(tf.logging.INFO)
-    with tf.Graph().as_default():
-        tf_global_step = slim.get_or_create_global_step()
+    tf_global_step = slim.get_or_create_global_step()
 
-        ######################
-        # Select the dataset #
-        ######################
-        dataset = dataset_factory.get_dataset(
-            FLAGS.dataset_name, FLAGS.dataset_split_name, FLAGS.dataset_dir)
+    ######################
+    # Select the dataset #
+    ######################
+    dataset = dataset_factory.get_dataset(
+        FLAGS.dataset_name, FLAGS.dataset_split_name, FLAGS.dataset_dir)
 
-        ####################
-        # Select the model #
-        ####################
-        network_fn = nets_factory.get_network_fn(
-            FLAGS.model_name,
-            num_classes=(dataset.num_classes - FLAGS.labels_offset),
-            is_training=False)
+    ####################
+    # Select the model #
+    ####################
+    network_fn = nets_factory.get_network_fn(
+        FLAGS.model_name,
+        num_classes=(dataset.num_classes - FLAGS.labels_offset),
+        is_training=False)
 
-        ##############################################################
-        # Create a dataset provider that loads data from the dataset #
-        ##############################################################
-        provider = slim.dataset_data_provider.DatasetDataProvider(
-            dataset,
-            shuffle=False,
-            common_queue_capacity=2 * FLAGS.batch_size,
-            common_queue_min=FLAGS.batch_size)
-        [image, label] = provider.get(['image', 'label'])
-        label -= FLAGS.labels_offset
+    ##############################################################
+    # Create a dataset provider that loads data from the dataset #
+    ##############################################################
+    # provider = slim.dataset_data_provider.DatasetDataProvider(
+    #     dataset,
+    #     shuffle=False,
+    #     common_queue_capacity=2 * FLAGS.batch_size,
+    #     common_queue_min=FLAGS.batch_size)
+    # [image, label] = provider.get(['image', 'label'])
+    # label -= FLAGS.labels_offset
+    #
+    # #####################################
+    # # Select the preprocessing function #
+    # #####################################
+    # preprocessing_name = FLAGS.preprocessing_name or FLAGS.model_name
+    # image_preprocessing_fn = preprocessing_factory.get_preprocessing(
+    #     preprocessing_name,
+    #     is_training=False)
+    #
+    # eval_image_size = FLAGS.eval_image_size or network_fn.default_image_size
+    #
+    # image = image_preprocessing_fn(image, eval_image_size, eval_image_size)
+    #
+    # images, labels = tf.train.batch(
+    #     [image, label],
+    #     batch_size=FLAGS.batch_size,
+    #     num_threads=FLAGS.num_preprocessing_threads,
+    #     capacity=5 * FLAGS.batch_size)
+    #
+    # ####################
+    # # Define the model #
+    # ####################
+    # logits_op, end_points = network_fn(images)
 
-        #####################################
-        # Select the preprocessing function #
-        #####################################
-        preprocessing_name = FLAGS.preprocessing_name or FLAGS.model_name
-        image_preprocessing_fn = preprocessing_factory.get_preprocessing(
-            preprocessing_name,
-            is_training=False)
+    preprocessing_name = FLAGS.preprocessing_name or FLAGS.model_name
+    image_preprocessing_fn = preprocessing_factory.get_preprocessing(
+        preprocessing_name,
+        is_training=False)
 
-        eval_image_size = FLAGS.eval_image_size or network_fn.default_image_size
+    def train_pre_process(example_proto):
+        features = {"image/encoded": tf.FixedLenFeature((), tf.string, default_value=""),
+                    "image/class/label": tf.FixedLenFeature((), tf.int64, default_value=0),
+                    'image/height': tf.FixedLenFeature((), tf.int64, default_value=0),
+                    'image/width': tf.FixedLenFeature((), tf.int64, default_value=0)
+                    }
 
-        image = image_preprocessing_fn(image, eval_image_size, eval_image_size)
+        parsed_features = tf.parse_single_example(example_proto, features)
+        image = tf.image.decode_jpeg(parsed_features["image/encoded"], 3)
 
-        images, labels = tf.train.batch(
-            [image, label],
-            batch_size=FLAGS.batch_size,
-            num_threads=FLAGS.num_preprocessing_threads,
-            capacity=5 * FLAGS.batch_size)
-
-        ####################
-        # Define the model #
-        ####################
-        logits_op, end_points = network_fn(images)
-
-        if FLAGS.quantize:
-            tf.contrib.quantize.create_eval_graph()
-
-        if FLAGS.moving_average_decay:
-            variable_averages = tf.train.ExponentialMovingAverage(
-                FLAGS.moving_average_decay, tf_global_step)
-            variables_to_restore = variable_averages.variables_to_restore(
-                slim.get_model_variables())
-            variables_to_restore[tf_global_step.op.name] = tf_global_step
+        if image_preprocessing_fn is not None:
+            image = image_preprocessing_fn(image, FLAGS.eval_image_size, FLAGS.eval_image_size)
         else:
-            variables_to_restore = slim.get_variables_to_restore()
+            image = tf.cast(image, tf.float32)
 
-        predictions = tf.argmax(logits_op, 1)
-        labels = tf.squeeze(labels)
-        accuracy_op = tf.reduce_mean(tf.cast(tf.equal(predictions, labels), tf.float32))
+            image = tf.expand_dims(image, 0)
+            image = tf.image.resize_image_with_pad(image, FLAGS.eval_image_size, FLAGS.eval_image_size)
+            # image = tf.image.resize_bilinear(image, [224, 224], align_corners=False)
+            image = tf.squeeze(image, [0])
 
-        cam = GradCamPlusPlus(logits_op, end_points[FLAGS.last_conv_layer], images)
+            image = tf.divide(image, 255.0)
+            image = tf.subtract(image, 0.5)
+            image = tf.multiply(image, 2.0)
 
-        # TODO(sguada) use num_epochs=1
-        if FLAGS.max_num_batches:
-            num_batches = FLAGS.max_num_batches
+        label = parsed_features["image/class/label"]
+        return image, label
+
+    files_op = tf.placeholder(tf.string, shape=[None], name="files")
+    dataset = tf.data.TFRecordDataset(files_op)
+    dataset = dataset.map(train_pre_process)
+    dataset = dataset.batch(FLAGS.batch_size)
+    iterator = dataset.make_initializable_iterator()
+    images, labels = iterator.get_next()
+
+    logits_op, end_points = network_fn(images)
+
+    if FLAGS.quantize:
+        tf.contrib.quantize.create_eval_graph()
+
+    if FLAGS.moving_average_decay:
+        variable_averages = tf.train.ExponentialMovingAverage(
+            FLAGS.moving_average_decay, tf_global_step)
+        variables_to_restore = variable_averages.variables_to_restore(
+            slim.get_model_variables())
+        variables_to_restore[tf_global_step.op.name] = tf_global_step
+    else:
+        variables_to_restore = slim.get_variables_to_restore()
+
+    predictions = tf.argmax(logits_op, 1)
+    labels = tf.squeeze(labels)
+    accuracy_op = tf.reduce_mean(tf.cast(tf.equal(predictions, labels), tf.float32))
+
+    cam = GradCamPlusPlus(logits_op, end_points[FLAGS.last_conv_layer], images)
+
+    # TODO(sguada) use num_epochs=1
+    if FLAGS.max_num_batches:
+        num_batches = FLAGS.max_num_batches
+    else:
+        # This ensures that we make a single pass over all of the data.
+        num_batches = math.ceil(dataset.num_samples / float(FLAGS.batch_size))
+
+    if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
+        checkpoint_path = tf.train.latest_checkpoint(FLAGS.checkpoint_path)
+    else:
+        checkpoint_path = FLAGS.checkpoint_path
+
+    tf.logging.info('Evaluating %s' % checkpoint_path)
+
+    tf_config = tf.ConfigProto()
+    tf_config.gpu_options.allow_growth = True
+    sess = tf.Session(config=tf_config)
+    sess.run(tf.global_variables_initializer())
+    saver = tf.train.Saver(var_list=variables_to_restore)
+    saver.restore(sess, checkpoint_path)
+    xs = None
+    ys = None
+    logits = None
+    tf_record_files = glob.glob(os.path.join(FLAGS.dataset_dir, "*%s*tfrecord" % FLAGS.dataset_split_name))
+    sess.run(iterator.initializer, feed_dict={files_op: tf_record_files})
+    for i in range(num_batches):
+        print(i, num_batches)
+        result = sess.run([images, labels, logits_op, accuracy_op])
+        if xs is None:
+            xs = result[0]
+            ys = result[1]
+            logits = result[2]
         else:
-            # This ensures that we make a single pass over all of the data.
-            num_batches = math.ceil(dataset.num_samples / float(FLAGS.batch_size))
+            xs = np.concatenate((xs, result[0]), axis=0)
+            ys = np.concatenate((ys, result[1]), axis=0)
+            logits = np.concatenate((logits, result[2]), axis=0)
+        print(result[3])
+    cam_imgs, class_indices = cam.create_cam_imgs(sess, xs, logits)
+    heatmap_imgs = {}
+    for i in range(len(xs)):
+        heatmap = cam.convert_cam_2_heatmap(cam_imgs[i][0])
+        overlay_img = cam.overlay_heatmap(xs[i], heatmap)
 
-        if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
-            checkpoint_path = tf.train.latest_checkpoint(FLAGS.checkpoint_path)
+        if ys[i].argmax() == logits[i].argmax():
+            key = "true/label_%d" % ys[i].argmax()
         else:
-            checkpoint_path = FLAGS.checkpoint_path
-
-        tf.logging.info('Evaluating %s' % checkpoint_path)
-
-        tf_config = tf.ConfigProto()
-        tf_config.gpu_options.allow_growth = True
-        sess = tf.Session(config=tf_config)
-        sess.run(tf.global_variables_initializer())
-        saver = tf.train.Saver(var_list=variables_to_restore)
-        saver.restore(sess, checkpoint_path)
-        xs = None
-        ys = None
-        logits = None
-        for i in range(num_batches):
-            print(i, num_batches)
-            result = sess.run([images, labels, logits_op, accuracy_op])
-            if xs is None:
-                xs = result[0]
-                ys = result[1]
-                logits = result[2]
-            else:
-                xs = np.concatenate((xs, result[0]), axis=0)
-                ys = np.concatenate((ys, result[1]), axis=0)
-                logits = np.concatenate((logits, result[2]), axis=0)
-            print(result[3])
-        cam_imgs, class_indices = cam.create_cam_imgs(sess, xs, logits)
-        heatmap_imgs = {}
-        for i in range(len(xs)):
-            heatmap = cam.convert_cam_2_heatmap(cam_imgs[i][0])
-            overlay_img = cam.overlay_heatmap(xs[i], heatmap)
-
-            if ys[i].argmax() == logits[i].argmax():
-                key = "true/label_%d" % ys[i].argmax()
-            else:
-                key = "false/truth_%d_pred_%d" % (ys[i].argmax(), logits[i].argmax())
-            if key not in heatmap_imgs:
-                heatmap_imgs[key] = []
-            if len(xs[i].shape) != 3 or xs[i].shape[2] != 3:
-                img = cv2.cvtColor(xs[i], cv2.COLOR_GRAY2BGR)[..., ::-1]
-            else:
-                img = xs[i]
-            heatmap_imgs[key].append(img)
-            heatmap_imgs[key].append(overlay_img[..., ::-1])
-        writer = tf.summary.FileWriter(FLAGS.eval_dir)
-        for key in heatmap_imgs:
-            cam.write_summary(writer, "grad_cam_%s" % key, heatmap_imgs[key], sess)
+            key = "false/truth_%d_pred_%d" % (ys[i].argmax(), logits[i].argmax())
+        if key not in heatmap_imgs:
+            heatmap_imgs[key] = []
+        if len(xs[i].shape) != 3 or xs[i].shape[2] != 3:
+            img = cv2.cvtColor(xs[i], cv2.COLOR_GRAY2BGR)[..., ::-1]
+        else:
+            img = xs[i]
+        heatmap_imgs[key].append(img)
+        heatmap_imgs[key].append(overlay_img[..., ::-1])
+    writer = tf.summary.FileWriter(FLAGS.eval_dir)
+    for key in heatmap_imgs:
+        cam.write_summary(writer, "grad_cam_%s" % key, heatmap_imgs[key], sess)
 
 
 if __name__ == '__main__':
