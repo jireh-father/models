@@ -101,7 +101,7 @@ def main(_):
     ######################
     # Select the dataset #
     ######################
-    dataset = dataset_factory.get_dataset(
+    dataset_slim = dataset_factory.get_dataset(
         FLAGS.dataset_name, FLAGS.dataset_split_name, FLAGS.dataset_dir)
 
     ####################
@@ -109,42 +109,8 @@ def main(_):
     ####################
     network_fn = nets_factory.get_network_fn(
         FLAGS.model_name,
-        num_classes=(dataset.num_classes - FLAGS.labels_offset),
+        num_classes=(dataset_slim.num_classes - FLAGS.labels_offset),
         is_training=False)
-
-    ##############################################################
-    # Create a dataset provider that loads data from the dataset #
-    ##############################################################
-    # provider = slim.dataset_data_provider.DatasetDataProvider(
-    #     dataset,
-    #     shuffle=False,
-    #     common_queue_capacity=2 * FLAGS.batch_size,
-    #     common_queue_min=FLAGS.batch_size)
-    # [image, label] = provider.get(['image', 'label'])
-    # label -= FLAGS.labels_offset
-    #
-    # #####################################
-    # # Select the preprocessing function #
-    # #####################################
-    # preprocessing_name = FLAGS.preprocessing_name or FLAGS.model_name
-    # image_preprocessing_fn = preprocessing_factory.get_preprocessing(
-    #     preprocessing_name,
-    #     is_training=False)
-    #
-    # eval_image_size = FLAGS.eval_image_size or network_fn.default_image_size
-    #
-    # image = image_preprocessing_fn(image, eval_image_size, eval_image_size)
-    #
-    # images, labels = tf.train.batch(
-    #     [image, label],
-    #     batch_size=FLAGS.batch_size,
-    #     num_threads=FLAGS.num_preprocessing_threads,
-    #     capacity=5 * FLAGS.batch_size)
-    #
-    # ####################
-    # # Define the model #
-    # ####################
-    # logits_op, end_points = network_fn(images)
 
     preprocessing_name = FLAGS.preprocessing_name or FLAGS.model_name
     image_preprocessing_fn = preprocessing_factory.get_preprocessing(
@@ -210,7 +176,7 @@ def main(_):
         num_batches = FLAGS.max_num_batches
     else:
         # This ensures that we make a single pass over all of the data.
-        num_batches = math.ceil(dataset.num_samples / float(FLAGS.batch_size))
+        num_batches = math.ceil(dataset_slim.num_samples / float(FLAGS.batch_size))
 
     if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
         checkpoint_path = tf.train.latest_checkpoint(FLAGS.checkpoint_path)
