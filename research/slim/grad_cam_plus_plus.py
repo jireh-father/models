@@ -171,8 +171,8 @@ class GradCamPlusPlus(object):
         image_ph = tf.placeholder(tf.float64, [eval_image_size, eval_image_size, 3], name="cam_image_" + name)
         image_summaries = tf.summary.image(name, image_ph, len(imgs))
         for i, img in enumerate(imgs):
-            merged_image_summary = tf.summary.merge(image_summaries)
-            writer.add_summary(sess.run(merged_image_summary, feed_dict={image_ph: img}), i)
+            # merged_image_summary = tf.summary.merge(image_summaries)
+            writer.add_summary(sess.run(image_summaries, feed_dict={image_ph: img}), i)
 
         # img_tensor = tf.convert_to_tensor(np.array(imgs))
         #
