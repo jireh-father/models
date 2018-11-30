@@ -17,9 +17,9 @@ class GradCamPlusPlus(object):
 
         self.last_conv_layer = last_conv_layer
         self.input_tensor = input_tensor
-        self.label_vector = tf.placeholder("float", [None, logit.shape[1]])
+        self.label_vector = tf.placeholder(tf.float32, [None, logit.shape[1]])
         self.label_index = tf.placeholder("int64")
-        cost = logit * self.label_vector
+        cost = tf.multiply(logit, self.label_vector)
 
         last_conv_layer_grad = tf.gradients(cost, last_conv_layer)[0]
         self.first_derivative = tf.exp(cost)[0][self.label_index] * last_conv_layer_grad
