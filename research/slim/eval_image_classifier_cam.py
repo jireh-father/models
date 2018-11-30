@@ -87,6 +87,8 @@ tf.app.flags.DEFINE_integer(
 
 tf.app.flags.DEFINE_bool(
     'quantize', False, 'whether to use quantized graph or not.')
+tf.app.flags.DEFINE_bool(
+    'show_original_image', False, 'show_original_image')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -246,11 +248,12 @@ def main(_):
             img = cv2.cvtColor(xs[i], cv2.COLOR_GRAY2BGR)[..., ::-1]
         else:
             img = xs[i]
-        heatmap_imgs[key].append(img)
+        if FLAGS.show_original_image:
+            heatmap_imgs[key].append(img)
         heatmap_imgs[key].append(overlay_img[..., ::-1])
     writer = tf.summary.FileWriter(FLAGS.eval_dir)
     for key in heatmap_imgs:
-        cam.write_summary(writer, "grad_cam_%s" % key, heatmap_imgs[key], sess)
+        cam.write_summary(writer, "grad_cam_%s" % key, heatmap_imgs[key], sess, FLAGS.eval_image_size)
 
     print("finished")
 
