@@ -26,6 +26,7 @@ from nets import nets_factory
 from preprocessing import preprocessing_factory
 import os, glob
 from grad_cam_plus_plus import GradCamPlusPlus
+from research.slim import embedding_visualizer as embedding
 import numpy as np
 import cv2
 
@@ -254,8 +255,12 @@ def main(_):
     writer = tf.summary.FileWriter(FLAGS.eval_dir)
     for key in heatmap_imgs:
         cam.write_summary(writer, "grad_cam_%s" % key, heatmap_imgs[key], sess, FLAGS.eval_image_size)
-
-    print("finished")
+    print("finished to summary cam")
+    embedding.summary_embedding(sess, xs, logits, os.path.join(FLAGS.eval_dir, "embedding"), FLAGS.eval_image_size,
+                                channel=3, labels=ys,
+                                prefix=None)
+    print("finished to summary embedding")
+    print("finished to evaluate")
 
 
 if __name__ == '__main__':
