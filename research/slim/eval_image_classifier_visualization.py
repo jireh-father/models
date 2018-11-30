@@ -34,7 +34,7 @@ import random
 slim = tf.contrib.slim
 
 tf.app.flags.DEFINE_integer(
-    'batch_size', 2, 'The number of samples in each batch.')
+    'batch_size', 100, 'The number of samples in each batch.')
 
 tf.app.flags.DEFINE_integer(
     'max_num_batches', None,
@@ -98,7 +98,7 @@ tf.app.flags.DEFINE_bool(
 tf.app.flags.DEFINE_bool(
     'use_embedding', True, 'use_embedding')
 tf.app.flags.DEFINE_integer(
-    'num_embedding', 200, 'num_embedding')
+    'num_embedding', 700, 'num_embedding')
 
 FLAGS = tf.app.flags.FLAGS
 
