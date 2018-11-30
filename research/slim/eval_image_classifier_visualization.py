@@ -96,6 +96,8 @@ tf.app.flags.DEFINE_bool(
 
 tf.app.flags.DEFINE_bool(
     'use_embedding', True, 'use_embedding')
+tf.app.flags.DEFINE_integer(
+    'num_embedding', 200, 'num_embedding')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -262,8 +264,9 @@ def main(_):
     for key in heatmap_imgs:
         cam.write_summary(writer, "grad_cam_%s" % key, heatmap_imgs[key], sess, FLAGS.eval_image_size)
     print("finished to summary cam")
-    embedding.summary_embedding(sess, xs, logits, os.path.join(FLAGS.eval_dir, "embedding"), FLAGS.eval_image_size,
-                                channel=3, labels=ys,
+    embedding.summary_embedding(sess, xs[:FLAGS.num_embedding], logits[:FLAGS.num_embedding],
+                                os.path.join(FLAGS.eval_dir, "embedding"), FLAGS.eval_image_size,
+                                channel=3, labels=ys[:FLAGS.num_embedding],
                                 prefix=None)
     print("finished to summary embedding")
     print("finished to evaluate")
