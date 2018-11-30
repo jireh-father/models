@@ -240,35 +240,38 @@ def main(_):
         total_accuracies += result[3]
         print(result[3])
     print("accuracy", total_accuracies / num_batches)
-    cam_imgs, class_indices = cam.create_cam_imgs(sess, xs, logits)
-    heatmap_imgs = {}
-    for i in range(len(xs)):
-        heatmap = cam.convert_cam_2_heatmap(cam_imgs[i][0])
-        overlay_img = cam.overlay_heatmap(xs[i], heatmap)
+    if FLAGS.use_cam:
+        cam_imgs, class_indices = cam.create_cam_imgs(sess, xs, logits)
+        heatmap_imgs = {}
 
-        if ys[i] == logits[i].argmax():
-            key = "true/label_%s-%d" % (ys_names[i], ys[i])
-        else:
-            key = "false/truth_%s-%d_pred_%s-%d" % (ys_names[i], ys[i], label_map[logits[i].argmax()],
-                                                    logits[i].argmax())
-        if key not in heatmap_imgs:
-            heatmap_imgs[key] = []
-        if len(xs[i].shape) != 3 or xs[i].shape[2] != 3:
-            img = cv2.cvtColor(xs[i], cv2.COLOR_GRAY2BGR)[..., ::-1]
-        else:
-            img = xs[i]
-        if FLAGS.show_original_image:
-            heatmap_imgs[key].append(img)
-        heatmap_imgs[key].append(overlay_img[..., ::-1])
-    writer = tf.summary.FileWriter(FLAGS.eval_dir)
-    for key in heatmap_imgs:
-        cam.write_summary(writer, "grad_cam_%s" % key, heatmap_imgs[key], sess, FLAGS.eval_image_size)
-    print("finished to summary cam")
-    embedding.summary_embedding(sess, xs[:FLAGS.num_embedding], logits[:FLAGS.num_embedding],
-                                os.path.join(FLAGS.eval_dir, "embedding"), FLAGS.eval_image_size,
-                                channel=3, labels=ys[:FLAGS.num_embedding],
-                                prefix=None)
-    print("finished to summary embedding")
+        for i in range(len(xs)):
+            heatmap = cam.convert_cam_2_heatmap(cam_imgs[i][0])
+            overlay_img = cam.overlay_heatmap(xs[i], heatmap)
+
+            if ys[i] == logits[i].argmax():
+                key = "true/label_%s-%d" % (ys_names[i], ys[i])
+            else:
+                key = "false/truth_%s-%d_pred_%s-%d" % (ys_names[i], ys[i], label_map[logits[i].argmax()],
+                                                        logits[i].argmax())
+            if key not in heatmap_imgs:
+                heatmap_imgs[key] = []
+            if len(xs[i].shape) != 3 or xs[i].shape[2] != 3:
+                img = cv2.cvtColor(xs[i], cv2.COLOR_GRAY2BGR)[..., ::-1]
+            else:
+                img = xs[i]
+            if FLAGS.show_original_image:
+                heatmap_imgs[key].append(img)
+            heatmap_imgs[key].append(overlay_img[..., ::-1])
+        writer = tf.summary.FileWriter(FLAGS.eval_dir)
+        for key in heatmap_imgs:
+            cam.write_summary(writer, "grad_cam_%s" % key, heatmap_imgs[key], sess, FLAGS.eval_image_size)
+        print("finished to summary cam")
+    if FLAGS.use_embedding:
+        embedding.summary_embedding(sess, xs[:FLAGS.num_embedding], logits[:FLAGS.num_embedding],
+                                    os.path.join(FLAGS.eval_dir, "embedding"), FLAGS.eval_image_size,
+                                    channel=3, labels=ys[:FLAGS.num_embedding],
+                                    prefix=None)
+        print("finished to summary embedding")
     print("finished to evaluate")
 
 
