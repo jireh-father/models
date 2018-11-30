@@ -216,7 +216,7 @@ def main(_):
     sess.run(iterator.initializer, feed_dict={files_op: tf_record_files})
     total_accuracies = 0.
     for i in range(num_batches):
-        print("step %d/%d" % (i, num_batches))
+        print("step %d/%d" % (i + 1, num_batches))
         result = sess.run([images, labels, logits_op, accuracy_op, label_names])
         if xs is None:
             xs = result[0]
