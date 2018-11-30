@@ -34,7 +34,7 @@ def write_embedding(config, sess, dataset, embedding_path, image_size, channel=3
 
 
 def summary_embedding(sess, dataset, embedding_list, embedding_path, image_size, channel=3, labels=None,
-                      prefix=None, label_names=None):
+                      prefix=None, label_map=None):
     if not os.path.exists(embedding_path):
         os.makedirs(embedding_path)
     prefix = str(prefix)
@@ -59,7 +59,7 @@ def summary_embedding(sess, dataset, embedding_list, embedding_path, image_size,
     # Make sprite and labels.
     make_sprite(dataset, image_size, channel, embedding_path)
     if labels is not None and len(labels) > 0:
-        make_metadata(labels, embedding_path, label_names=label_names)
+        make_metadata(labels, embedding_path, label_map=label_map)
 
 
 def images_to_sprite(data):
@@ -98,14 +98,14 @@ def make_sprite(dataset, image_size, channel, output_path):
     scipy.misc.imsave(os.path.join(output_path, 'sprite.png'), sprite)
 
 
-def make_metadata(labels, output_path, label_names=None):
+def make_metadata(labels, output_path, label_map=None):
     if len(labels.shape) == 2:
         labels = labels.argmax(axis=1)
     metadata_file = open(os.path.join(output_path, 'labels.tsv'), 'w')
     metadata_file.write('Name\tClass\n')
     for i in range(len(labels)):
-        if label_names is not None:
-            l = "%d_%s" % (labels[i], label_names[labels[i]])
+        if label_map is not None:
+            l = "%d_%s" % (labels[i], label_map[labels[i]])
         else:
             l = "%d" % labels[i]
         metadata_file.write('%06d\t%s\n' % (i, l))

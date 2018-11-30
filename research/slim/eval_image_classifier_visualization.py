@@ -274,7 +274,7 @@ def main(_):
         embedding.summary_embedding(sess, xs[indices[:FLAGS.num_embedding]], [logits[indices[:FLAGS.num_embedding]]],
                                     os.path.join(os.path.abspath(FLAGS.eval_dir), "embedding"), FLAGS.eval_image_size,
                                     channel=3, labels=ys[indices[:FLAGS.num_embedding]],
-                                    prefix="eval_embedding", label_names=ys_names[:FLAGS.num_embedding])
+                                    prefix="eval_embedding", label_map=label_map)
         print("finished to summary embedding")
     print("finished to evaluate")
 
