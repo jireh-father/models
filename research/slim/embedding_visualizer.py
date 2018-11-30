@@ -34,7 +34,7 @@ def write_embedding(config, sess, dataset, embedding_path, image_size, channel=3
 
 
 def summary_embedding(sess, dataset, embedding_list, embedding_path, image_size, channel=3, labels=None,
-                      label_names=None, prefix=None):
+                      prefix=None, label_names=None):
     if not os.path.exists(embedding_path):
         os.makedirs(embedding_path)
     prefix = str(prefix)
