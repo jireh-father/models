@@ -120,6 +120,7 @@ def main(_):
     def train_pre_process(example_proto):
         features = {"image/encoded": tf.FixedLenFeature((), tf.string, default_value=""),
                     "image/class/label": tf.FixedLenFeature((), tf.int64, default_value=0),
+                    "image/class/name": tf.FixedLenFeature((), tf.string, default_value=""),
                     'image/height': tf.FixedLenFeature((), tf.int64, default_value=0),
                     'image/width': tf.FixedLenFeature((), tf.int64, default_value=0)
                     }
@@ -142,14 +143,15 @@ def main(_):
             image = tf.multiply(image, 2.0)
 
         label = parsed_features["image/class/label"]
-        return image, label
+        label_name = parsed_features["image/class/name"]
+        return image, label, label_name
 
     files_op = tf.placeholder(tf.string, shape=[None], name="files")
     dataset = tf.data.TFRecordDataset(files_op)
     dataset = dataset.map(train_pre_process)
     dataset = dataset.batch(FLAGS.batch_size)
     iterator = dataset.make_initializable_iterator()
-    images, labels = iterator.get_next()
+    images, labels, label_names = iterator.get_next()
 
     logits_op, end_points = network_fn(images)
 
@@ -170,7 +172,20 @@ def main(_):
     accuracy_op = tf.reduce_mean(tf.cast(tf.equal(predictions, labels), tf.float32))
 
     cam = GradCamPlusPlus(logits_op, end_points[FLAGS.last_conv_layer], images)
-
+    label_map = {0: "conservative",
+                 1: "dressy",
+                 2: "ethnic",
+                 3: "fairy",
+                 4: "feminine",
+                 5: "gal",
+                 6: "girlish",
+                 7: "kireime-casual",
+                 8: "lolita",
+                 9: "mode",
+                 10: "natural",
+                 11: "retro",
+                 12: "rock",
+                 13: "street"}
     # TODO(sguada) use num_epochs=1
     if FLAGS.max_num_batches:
         num_batches = FLAGS.max_num_batches
@@ -194,20 +209,22 @@ def main(_):
     xs = None
     ys = None
     logits = None
+    ys_names = None
     tf_record_files = glob.glob(os.path.join(FLAGS.dataset_dir, "*%s*tfrecord" % FLAGS.dataset_split_name))
     sess.run(iterator.initializer, feed_dict={files_op: tf_record_files})
     total_accuracies = 0.
     for i in range(num_batches):
-        print(i + 1, "/", num_batches)
-        result = sess.run([images, labels, logits_op, accuracy_op])
+        result = sess.run([images, labels, logits_op, accuracy_op, label_names])
         if xs is None:
             xs = result[0]
             ys = result[1]
             logits = result[2]
+            ys_names = result[4]
         else:
             xs = np.concatenate((xs, result[0]), axis=0)
             ys = np.concatenate((ys, result[1]), axis=0)
             logits = np.concatenate((logits, result[2]), axis=0)
+            ys_names = np.concatenate((ys_names, result[4]), axis=0)
         total_accuracies += result[3]
         print(result[3])
     print("accuracy", total_accuracies / num_batches)
@@ -218,9 +235,9 @@ def main(_):
         overlay_img = cam.overlay_heatmap(xs[i], heatmap)
 
         if ys[i] == logits[i].argmax():
-            key = "true/label_%d" % ys[i]
+            key = "true/label_%s" % ys_names[i]
         else:
-            key = "false/truth_%d_pred_%d" % (ys[i], logits[i].argmax())
+            key = "false/truth_%s_pred_%d" % (ys_names[i], label_map[logits[i].argmax()])
         if key not in heatmap_imgs:
             heatmap_imgs[key] = []
         if len(xs[i].shape) != 3 or xs[i].shape[2] != 3:
