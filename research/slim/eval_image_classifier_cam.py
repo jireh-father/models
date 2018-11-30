@@ -196,8 +196,9 @@ def main(_):
     logits = None
     tf_record_files = glob.glob(os.path.join(FLAGS.dataset_dir, "*%s*tfrecord" % FLAGS.dataset_split_name))
     sess.run(iterator.initializer, feed_dict={files_op: tf_record_files})
+    total_accuracies = 0.
     for i in range(num_batches):
-        print(i, num_batches)
+        print(i + 1, "/", num_batches)
         result = sess.run([images, labels, logits_op, accuracy_op])
         if xs is None:
             xs = result[0]
@@ -207,7 +208,9 @@ def main(_):
             xs = np.concatenate((xs, result[0]), axis=0)
             ys = np.concatenate((ys, result[1]), axis=0)
             logits = np.concatenate((logits, result[2]), axis=0)
+        total_accuracies += result[3]
         print(result[3])
+    print("accuracy", total_accuracies / num_batches)
     cam_imgs, class_indices = cam.create_cam_imgs(sess, xs, logits)
     heatmap_imgs = {}
     for i in range(len(xs)):
@@ -229,6 +232,8 @@ def main(_):
     writer = tf.summary.FileWriter(FLAGS.eval_dir)
     for key in heatmap_imgs:
         cam.write_summary(writer, "grad_cam_%s" % key, heatmap_imgs[key], sess)
+
+    print("finished")
 
 
 if __name__ == '__main__':
