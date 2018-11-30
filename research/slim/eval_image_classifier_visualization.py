@@ -26,7 +26,7 @@ from nets import nets_factory
 from preprocessing import preprocessing_factory
 import os, glob
 from grad_cam_plus_plus import GradCamPlusPlus
-from research.slim import embedding_visualizer as embedding
+import embedding_visualizer as embedding
 import numpy as np
 import cv2
 
@@ -90,6 +90,12 @@ tf.app.flags.DEFINE_bool(
     'quantize', False, 'whether to use quantized graph or not.')
 tf.app.flags.DEFINE_bool(
     'show_original_image', False, 'show_original_image')
+
+tf.app.flags.DEFINE_bool(
+    'use_cam', True, 'use_cam')
+
+tf.app.flags.DEFINE_bool(
+    'use_embedding', True, 'use_embedding')
 
 FLAGS = tf.app.flags.FLAGS
 
