@@ -238,7 +238,7 @@ def main(_):
         if ys[i] == logits[i].argmax():
             key = "true/label_%s" % ys_names[i]
         else:
-            key = "false/truth_%s_pred_%d" % (ys_names[i], label_map[logits[i].argmax()])
+            key = "false/truth_%s_pred_%s" % (ys_names[i], label_map[logits[i].argmax()])
         if key not in heatmap_imgs:
             heatmap_imgs[key] = []
         if len(xs[i].shape) != 3 or xs[i].shape[2] != 3:
