@@ -38,10 +38,6 @@ def summary_embedding(sess, dataset, embedding_list, embedding_path, image_size,
     if not os.path.exists(embedding_path):
         os.makedirs(embedding_path)
     prefix = str(prefix)
-    if len(dataset.shape) == 2:
-        dataset = dataset.reshape((-1, image_size * image_size * channel))
-
-    summary_writer = tf.summary.FileWriter(embedding_path, sess.graph)
 
     config = projector.ProjectorConfig()
 
@@ -49,11 +45,16 @@ def summary_embedding(sess, dataset, embedding_list, embedding_path, image_size,
         embed_tensor = make_embed_tensor(sess, embed_vectors, embed_idx, prefix)
         write_projector_config(config, embed_tensor.name, embedding_path, image_size, channel, labels)
 
+    save_model(sess, embedding_path, prefix)
+
+    if len(dataset.shape) == 2:
+        dataset = dataset.reshape((-1, image_size * image_size * channel))
+
+    summary_writer = tf.summary.FileWriter(embedding_path, sess.graph)
+
     projector.visualize_embeddings(summary_writer, config)
 
     summary_writer.close()
-
-    save_model(sess, embedding_path, prefix)
 
     # Make sprite and labels.
     make_sprite(dataset, image_size, channel, embedding_path)

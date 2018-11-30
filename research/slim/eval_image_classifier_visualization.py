@@ -29,6 +29,7 @@ from grad_cam_plus_plus import GradCamPlusPlus
 import embedding_visualizer as embedding
 import numpy as np
 import cv2
+import random
 
 slim = tf.contrib.slim
 
@@ -267,10 +268,13 @@ def main(_):
             cam.write_summary(writer, "grad_cam_%s" % key, heatmap_imgs[key], sess, FLAGS.eval_image_size)
         print("finished to summary cam")
     if FLAGS.use_embedding:
-        embedding.summary_embedding(sess, xs[:FLAGS.num_embedding], logits[:FLAGS.num_embedding],
+        random.seed(1)
+        indices = list(range(len(xs)))
+        random.shuffle(indices)
+        embedding.summary_embedding(sess, xs[indices[:FLAGS.num_embedding]], logits[indices[:FLAGS.num_embedding]],
                                     os.path.join(FLAGS.eval_dir, "embedding"), FLAGS.eval_image_size,
-                                    channel=3, labels=ys[:FLAGS.num_embedding],
-                                    prefix=None)
+                                    channel=3, labels=ys[indices[:FLAGS.num_embedding]],
+                                    prefix="eval_embedding")
         print("finished to summary embedding")
     print("finished to evaluate")
 
