@@ -236,9 +236,10 @@ def main(_):
         overlay_img = cam.overlay_heatmap(xs[i], heatmap)
 
         if ys[i] == logits[i].argmax():
-            key = "true/label_%s" % ys_names[i]
+            key = "true/label_%s(%d)" % (ys_names[i], ys[i])
         else:
-            key = "false/truth_%s_pred_%s" % (ys_names[i], label_map[logits[i].argmax()])
+            key = "false/truth_%s(%d)_pred_%s(%d)" % (ys_names[i], ys[i], label_map[logits[i].argmax()],
+                                                      logits[i].argmax())
         if key not in heatmap_imgs:
             heatmap_imgs[key] = []
         if len(xs[i].shape) != 3 or xs[i].shape[2] != 3:
