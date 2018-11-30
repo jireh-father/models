@@ -106,6 +106,8 @@ def make_metadata(labels, output_path, label_names=None):
     for i in range(len(labels)):
         if label_names is not None:
             l = "%d_%s" % (labels[i], label_names[i])
+        else:
+            l = "%d" % labels[i]
         metadata_file.write('%06d\t%s\n' % (i, l))
     metadata_file.close()
 
